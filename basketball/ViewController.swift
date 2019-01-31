@@ -6,25 +6,28 @@
 //  Copyright © 2019 Dmitry Novosyolov. All rights reserved.
 //
 
-import UIKit
-import SceneKit
 import ARKit
 
-class ViewController: UIViewController, ARSCNViewDelegate {
+class ViewController: UIViewController {
 
+    // MARK: - ... @IBOutlet
     @IBOutlet var sceneView: ARSCNView!
     
+    // MARK: - ... UIViewController Methods
     override func viewDidLoad() {
         super.viewDidLoad()
         
         // Set the view's delegate
         sceneView.delegate = self
         
+        // Switch on lighting
+        sceneView.autoenablesDefaultLighting = true
+        
         // Show statistics such as fps and timing information
         sceneView.showsStatistics = true
         
         // Create a new scene
-        let scene = SCNScene(named: "art.scnassets/ship.scn")!
+        let scene = SCNScene()
         
         // Set the scene to the view
         sceneView.scene = scene
@@ -35,6 +38,7 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         
         // Create a session configuration
         let configuration = ARWorldTrackingConfiguration()
+        configuration.planeDetection = [.vertical]
 
         // Run the view's session
         sceneView.session.run(configuration)
@@ -46,30 +50,53 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         // Pause the view's session
         sceneView.session.pause()
     }
-
-    // MARK: - ARSCNViewDelegate
     
-/*
-    // Override to create and configure nodes for anchors added to the view's session.
-    func renderer(_ renderer: SCNSceneRenderer, nodeFor anchor: ARAnchor) -> SCNNode? {
-        let node = SCNNode()
-     
+    // MARK: - ... Custom Methods
+    func createNode (from sceneName: String) -> SCNNode? {
+        guard let scene = SCNScene(named: "art.scnassets/\(sceneName)") else {
+            print(#function, "ERROR: Can't create node from scene \(sceneName)")
+            return nil
+        }
+        
+        let node = scene.rootNode.clone()
+        
+        
         return node
     }
-*/
     
-    func session(_ session: ARSession, didFailWithError error: Error) {
-        // Present an error message to the user
+    func createWall(anchor: ARPlaneAnchor) -> SCNNode {
         
+        let extent = anchor.extent
+        let width = CGFloat(extent.x)
+        let height = CGFloat(extent.z)
+        
+        let node = SCNNode(geometry: SCNPlane(width: width, height: height))
+        
+        node.eulerAngles.x -= .pi / 2
+        node.geometry?.firstMaterial?.diffuse.contents = #colorLiteral(red: 0.5568627715, green: 0.3529411852, blue: 0.9686274529, alpha: 1)
+        node.opacity = 0.25
+        
+        return node
     }
     
-    func sessionWasInterrupted(_ session: ARSession) {
-        // Inform the user that the session has been interrupted, for example, by presenting an overlay
+    @IBAction func screenTapped(_ sender: UITapGestureRecognizer) {
+        let location = sender.location(in: sceneView)
         
+        guard let result = sceneView.hitTest(location, types: [.existingPlaneUsingExtent]).first else { return }
+        
+        print(#function, Date())
     }
-    
-    func sessionInterruptionEnded(_ session: ARSession) {
-        // Reset tracking and/or remove existing anchors if consistent tracking is required
+}
+
+// MARK: - ... ARSCNViewDelegate
+extension ViewController: ARSCNViewDelegate {
+    func renderer(_ renderer: SCNSceneRenderer, didAdd node: SCNNode, for anchor: ARAnchor) {
+        print(#function)
         
+        guard let anchor = anchor as? ARPlaneAnchor else { return }
+        
+        let wall = createWall(anchor: anchor)
+        
+        node.addChildNode(wall)
     }
 }
