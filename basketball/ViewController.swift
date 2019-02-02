@@ -11,10 +11,12 @@ import ARKit
 class ViewController: UIViewController {
     
     // MARK: - ... Properties
+    var ballNode: SCNNode?
     var hoopAdded = false
     
     // MARK: - ... @IBOutlet
     @IBOutlet var sceneView: ARSCNView!
+    @IBOutlet weak var resultLabel: UILabel!
     
     // MARK: - ... UIViewController Methods
     override func viewDidLoad() {
@@ -34,6 +36,7 @@ class ViewController: UIViewController {
         
         // Set the scene to the view
         sceneView.scene = scene
+        result()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -56,36 +59,55 @@ class ViewController: UIViewController {
     
     // MARK: - ... Custom Methods
     func createBasketBall() {
+        guard let ballNode = ballNode?.clone() ?? createNode(from: "Ball") else { return }
         
-        guard let ballNode = createNode(from: "Ball.scn") else { return }
+        self.ballNode = ballNode
+        
         guard let frame = sceneView.session.currentFrame else { return }
+        
         ballNode.simdTransform = frame.camera.transform
+        
+        
+        let body = SCNPhysicsBody(type: .dynamic,shape: SCNPhysicsShape(node: ballNode,options:[SCNPhysicsShape.Option.collisionMargin: 0.01]))
+        
+        ballNode.physicsBody = body
+        
+        let power = Float(10)
+        let transform = SCNMatrix4(frame.camera.transform)
+        let force = SCNVector3(-transform.m31 * power, -transform.m32 * power, -transform.m33 * power)
+        
+        ballNode.physicsBody?.applyForce(force, asImpulse: true)
+        
+        print(#function, "ball created!")
         
         sceneView.scene.rootNode.addChildNode(ballNode)
     }
     
     func createHoop(result: ARHitTestResult) {
+        guard let hoopNode = createNode(from: "Hoop") else { return }
         
-        guard let hoopNode = createNode(from: "Hoop.scn") else { return }
         hoopNode.simdTransform = result.worldTransform
         hoopNode.eulerAngles.x -= .pi / 2
+        hoopNode.opacity = 0.77
         
         hoopAdded = true
         stopPlaneDetection()
         removeWalls()
         
+        let body = SCNPhysicsBody(type: .static,shape: SCNPhysicsShape(node: hoopNode,options:[SCNPhysicsShape.Option.type:SCNPhysicsShape.ShapeType.concavePolyhedron]))
+        
+        hoopNode.physicsBody = body
+        
         sceneView.scene.rootNode.addChildNode(hoopNode)
     }
     
-    func createNode(from sceneName: String) -> SCNNode? {
-        
-        guard let scene = SCNScene(named: "art.scnassets/\(sceneName)") else
-        {
-            print(#function, "ERROR: Can't create node from scene \(sceneName)")
+    func createNode(from name: String) -> SCNNode? {
+        guard let scene = SCNScene(named: "art.scnassets/\(name).scn") else {
+            print(#function, "ERROR: Can't create node from scene \(name).scn")
+            
             return nil
         }
-        
-        let node = scene.rootNode.clone()
+        let node = scene.rootNode.childNode(withName: name, recursively: false)
         
         return node
     }
@@ -107,11 +129,9 @@ class ViewController: UIViewController {
     }
     
     func removeWalls() {
-        
         sceneView.scene.rootNode.enumerateChildNodes { node,_ in
-            guard node.name != "Wall" else {
-                removeFromParent()
-                return
+            if node.name == "Wall" {
+                node.removeFromParentNode()
             }
         }
     }
@@ -121,20 +141,23 @@ class ViewController: UIViewController {
         guard let configuration = sceneView.session.configuration as? ARWorldTrackingConfiguration else { return }
         
         configuration.planeDetection = []
+        
         sceneView.session.run(configuration)
+    }
+    
+    func result() {
+        resultLabel.text = "Goals: \(#function)"
     }
     
     // MARK: - ... @IBAction
     @IBAction func screenTapped(_ sender: UITapGestureRecognizer) {
-        
-        guard !hoopAdded else {
+        if !hoopAdded {
+            let location = sender.location(in: sceneView)
+            guard let result = sceneView.hitTest(location, types: [.existingPlaneUsingExtent]).first else { return }
+            createHoop(result: result)
+        } else {
             createBasketBall()
-            return
         }
-        
-        let location = sender.location(in: sceneView)
-        guard let result = sceneView.hitTest(location, types: [.existingPlaneUsingExtent]).first else { return }
-        createHoop(result: result)
     }
 }
 
@@ -142,9 +165,13 @@ class ViewController: UIViewController {
 extension ViewController: ARSCNViewDelegate {
     func renderer(_ renderer: SCNSceneRenderer, didAdd node: SCNNode, for anchor: ARAnchor) {
         
-        guard let anchor = anchor as? ARPlaneAnchor else { return }
+        guard let anchor = anchor as? ARPlaneAnchor,
+            anchor.alignment == .vertical
+            else { return }
+        
         let wall = createWall(anchor: anchor)
         
         node.addChildNode(wall)
     }
 }
+
