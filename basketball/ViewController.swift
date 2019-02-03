@@ -11,8 +11,13 @@ import ARKit
 class ViewController: UIViewController {
     
     // MARK: - ... Properties
+    let ballCategory = 0
+    let startCategory = 1
+    let endCategory = 2
+    
     var ballNode: SCNNode?
     var hoopAdded = false
+    var score: Int?
     
     // MARK: - ... @IBOutlet
     @IBOutlet var sceneView: ARSCNView!
@@ -67,18 +72,19 @@ class ViewController: UIViewController {
         
         ballNode.simdTransform = frame.camera.transform
         
+        ballNode.physicsBody?.categoryBitMask = ballCategory
+        ballNode.physicsBody?.collisionBitMask = startCategory
+        ballNode.physicsBody?.collisionBitMask = endCategory
+        ballNode.physicsBody?.contactTestBitMask = startCategory
+        ballNode.physicsBody?.contactTestBitMask = endCategory
         
-        let body = SCNPhysicsBody(type: .dynamic,shape: SCNPhysicsShape(node: ballNode,options:[SCNPhysicsShape.Option.collisionMargin: 0.01]))
-        
-        ballNode.physicsBody = body
+        ballNode.physicsBody = SCNPhysicsBody(type: .dynamic,shape: SCNPhysicsShape(node: ballNode,options:[SCNPhysicsShape.Option.collisionMargin: 0.01]))
         
         let power = Float(10)
         let transform = SCNMatrix4(frame.camera.transform)
         let force = SCNVector3(-transform.m31 * power, -transform.m32 * power, -transform.m33 * power)
         
         ballNode.physicsBody?.applyForce(force, asImpulse: true)
-        
-        print(#function, "ball created!")
         
         sceneView.scene.rootNode.addChildNode(ballNode)
     }
@@ -94,9 +100,19 @@ class ViewController: UIViewController {
         stopPlaneDetection()
         removeWalls()
         
-        let body = SCNPhysicsBody(type: .static,shape: SCNPhysicsShape(node: hoopNode,options:[SCNPhysicsShape.Option.type:SCNPhysicsShape.ShapeType.concavePolyhedron]))
+        hoopNode.physicsBody = SCNPhysicsBody(type: .static,shape: SCNPhysicsShape(node: hoopNode,options:[SCNPhysicsShape.Option.type:SCNPhysicsShape.ShapeType.concavePolyhedron]))
         
-        hoopNode.physicsBody = body
+        let startNode = hoopNode.childNode(withName:
+            "resultStart", recursively: false)!
+        let endNode = hoopNode.childNode(withName:
+            "resultEnd", recursively: false)!
+        
+        startNode.physicsBody?.categoryBitMask = startCategory
+        startNode.physicsBody?.collisionBitMask = ballCategory
+        startNode.physicsBody?.contactTestBitMask = ballCategory
+        endNode.physicsBody?.categoryBitMask = endCategory
+        endNode.physicsBody?.collisionBitMask = ballCategory
+        endNode.physicsBody?.contactTestBitMask = ballCategory
         
         sceneView.scene.rootNode.addChildNode(hoopNode)
     }
@@ -137,7 +153,6 @@ class ViewController: UIViewController {
     }
     
     func stopPlaneDetection() {
-        
         guard let configuration = sceneView.session.configuration as? ARWorldTrackingConfiguration else { return }
         
         configuration.planeDetection = []
@@ -146,17 +161,17 @@ class ViewController: UIViewController {
     }
     
     func result() {
-        resultLabel.text = "Goals: \(#function)"
+        resultLabel.text = "Goals: \(score ?? 0)"
     }
     
     // MARK: - ... @IBAction
     @IBAction func screenTapped(_ sender: UITapGestureRecognizer) {
-        if !hoopAdded {
+        if hoopAdded {
+            createBasketBall()
+        } else {
             let location = sender.location(in: sceneView)
             guard let result = sceneView.hitTest(location, types: [.existingPlaneUsingExtent]).first else { return }
             createHoop(result: result)
-        } else {
-            createBasketBall()
         }
     }
 }
@@ -166,8 +181,7 @@ extension ViewController: ARSCNViewDelegate {
     func renderer(_ renderer: SCNSceneRenderer, didAdd node: SCNNode, for anchor: ARAnchor) {
         
         guard let anchor = anchor as? ARPlaneAnchor,
-            anchor.alignment == .vertical
-            else { return }
+        anchor.alignment == .vertical  else { return }
         
         let wall = createWall(anchor: anchor)
         
@@ -175,3 +189,12 @@ extension ViewController: ARSCNViewDelegate {
     }
 }
 
+// MARK: - ... SKPhysicsContactDelegate
+extension ViewController: SKPhysicsContactDelegate {
+    func didBegin(_ contact: SKPhysicsContact) {
+        print("Start Contact!")
+    }
+    func didEnd(_ contact: SKPhysicsContact) {
+        print("End Contact!")
+    }
+}
