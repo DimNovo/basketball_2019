@@ -72,12 +72,6 @@ class ViewController: UIViewController {
         
         ballNode.simdTransform = frame.camera.transform
         
-        ballNode.physicsBody?.categoryBitMask = ballCategory
-        ballNode.physicsBody?.collisionBitMask = startCategory
-        ballNode.physicsBody?.collisionBitMask = endCategory
-        ballNode.physicsBody?.contactTestBitMask = startCategory
-        ballNode.physicsBody?.contactTestBitMask = endCategory
-        
         ballNode.physicsBody = SCNPhysicsBody(type: .dynamic,shape: SCNPhysicsShape(node: ballNode,options:[SCNPhysicsShape.Option.collisionMargin: 0.01]))
         
         let power = Float(10)
@@ -86,26 +80,32 @@ class ViewController: UIViewController {
         
         ballNode.physicsBody?.applyForce(force, asImpulse: true)
         
+        ballNode.physicsBody?.categoryBitMask = ballCategory
+        ballNode.physicsBody?.collisionBitMask = startCategory
+        ballNode.physicsBody?.collisionBitMask = endCategory
+        ballNode.physicsBody?.contactTestBitMask = startCategory
+        ballNode.physicsBody?.contactTestBitMask = endCategory
+        
         sceneView.scene.rootNode.addChildNode(ballNode)
     }
     
     func createHoop(result: ARHitTestResult) {
         guard let hoopNode = createNode(from: "Hoop") else { return }
         
-        hoopNode.simdTransform = result.worldTransform
-        hoopNode.eulerAngles.x -= .pi / 2
-        hoopNode.opacity = 0.77
-        
         hoopAdded = true
         stopPlaneDetection()
         removeWalls()
-        
-        hoopNode.physicsBody = SCNPhysicsBody(type: .static,shape: SCNPhysicsShape(node: hoopNode,options:[SCNPhysicsShape.Option.type:SCNPhysicsShape.ShapeType.concavePolyhedron]))
         
         let startNode = hoopNode.childNode(withName:
             "resultStart", recursively: false)!
         let endNode = hoopNode.childNode(withName:
             "resultEnd", recursively: false)!
+        
+        hoopNode.simdTransform = result.worldTransform
+        hoopNode.eulerAngles.x -= .pi / 2
+        hoopNode.opacity = 0.77
+        
+        hoopNode.physicsBody = SCNPhysicsBody(type: .static,shape: SCNPhysicsShape(node: hoopNode,options:[SCNPhysicsShape.Option.type:SCNPhysicsShape.ShapeType.concavePolyhedron]))
         
         startNode.physicsBody?.categoryBitMask = startCategory
         startNode.physicsBody?.collisionBitMask = ballCategory
