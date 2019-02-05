@@ -14,11 +14,12 @@ class ViewController: UIViewController {
     enum BodyType:Int
     {
         case ball = 0
-        case hoop = 1
+        case start = 1
+        case end = 2
     }
     var ballNode: SCNNode?
     var hoopAdded = false
-    var score: Int?
+    var score: Double?
     
     // MARK: - ... @IBOutlet
     @IBOutlet var sceneView: ARSCNView!
@@ -81,6 +82,10 @@ class ViewController: UIViewController {
         
         ballNode.physicsBody = body
         
+        ballNode.physicsBody?.categoryBitMask = BodyType.ball.rawValue
+        ballNode.physicsBody?.collisionBitMask = BodyType.start.rawValue | BodyType.end.rawValue
+        ballNode.physicsBody?.contactTestBitMask = BodyType.start.rawValue | BodyType.end.rawValue
+        
         let power = Float(10)
         let transform = SCNMatrix4(frame.camera.transform)
         let force = SCNVector3(-transform.m31 * power,
@@ -88,10 +93,6 @@ class ViewController: UIViewController {
                                -transform.m33 * power)
         
         body.applyForce(force, asImpulse: true)
-        
-        body.categoryBitMask = BodyType.ball.rawValue
-        body.collisionBitMask = BodyType.hoop.rawValue
-        body.contactTestBitMask = BodyType.hoop.rawValue
         
         sceneView.scene.rootNode.addChildNode(ballNode)
     }
@@ -119,9 +120,18 @@ class ViewController: UIViewController {
         
         hoopNode.physicsBody = body
         
-        body.categoryBitMask = BodyType.hoop.rawValue
-        body.collisionBitMask = BodyType.ball.rawValue
-        body.contactTestBitMask = BodyType.ball.rawValue
+        if let startNode = hoopNode.childNode(withName: "resultStart", recursively: false) {
+            startNode.physicsBody?.categoryBitMask = BodyType.start.rawValue
+            startNode.physicsBody?.collisionBitMask = BodyType.ball.rawValue
+            startNode.physicsBody?.contactTestBitMask = BodyType.ball.rawValue
+            print("startNode detected: \(startNode.description)")
+        }
+        if let endNode = hoopNode.childNode(withName: "resultEnd", recursively: false) {
+            endNode.physicsBody?.categoryBitMask = BodyType.end.rawValue
+            endNode.physicsBody?.collisionBitMask = BodyType.ball.rawValue
+            endNode.physicsBody?.contactTestBitMask = BodyType.ball.rawValue
+            print("endNode detected: \(endNode.description)")
+        }
         
         sceneView.scene.rootNode.addChildNode(hoopNode)
     }
@@ -199,11 +209,9 @@ extension ViewController: ARSCNViewDelegate {
 }
 
 // MARK: - ... SKPhysicsContactDelegate
-extension ViewController: SKPhysicsContactDelegate {
-    func didBegin(_ contact: SKPhysicsContact) {
-        print("Start Contact!")
-    }
-    func didEnd(_ contact: SKPhysicsContact) {
-        print("End Contact!")
+extension ViewController: SCNPhysicsContactDelegate {
+    func physicsWorld(_ world: SCNPhysicsWorld, didBegin contact: SCNPhysicsContact) {
+        
+        print("Contact!")
     }
 }
