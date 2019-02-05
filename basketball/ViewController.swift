@@ -13,9 +13,8 @@ class ViewController: UIViewController {
     // MARK: - ... Properties
     enum BodyType:Int
     {
-    case ball = 0
-    case startCont = 1
-    case endCont = 2
+        case ball = 0
+        case hoop = 1
     }
     var ballNode: SCNNode?
     var hoopAdded = false
@@ -74,7 +73,12 @@ class ViewController: UIViewController {
         
         ballNode.simdTransform = frame.camera.transform
         
-        let body = SCNPhysicsBody(type: .dynamic,shape: SCNPhysicsShape(node: ballNode,options:[SCNPhysicsShape.Option.collisionMargin: 0.01]))
+        let body = SCNPhysicsBody(type:
+            .dynamic,shape:
+            SCNPhysicsShape(node:
+                ballNode,options:
+                [SCNPhysicsShape.Option.collisionMargin:0.01]))
+        
         ballNode.physicsBody = body
         
         let power = Float(10)
@@ -86,8 +90,8 @@ class ViewController: UIViewController {
         body.applyForce(force, asImpulse: true)
         
         body.categoryBitMask = BodyType.ball.rawValue
-        body.collisionBitMask = BodyType.startCont.rawValue | BodyType.endCont.rawValue
-        body.contactTestBitMask = BodyType.startCont.rawValue | BodyType.endCont.rawValue
+        body.collisionBitMask = BodyType.hoop.rawValue
+        body.contactTestBitMask = BodyType.hoop.rawValue
         
         sceneView.scene.rootNode.addChildNode(ballNode)
     }
@@ -103,26 +107,21 @@ class ViewController: UIViewController {
         stopPlaneDetection()
         removeWalls()
         
-        let body = SCNPhysicsBody(type:
-            .static,shape:
+        let body = SCNPhysicsBody(
+            type:.static,shape:
             SCNPhysicsShape(node:
                 hoopNode,options:
-                [SCNPhysicsShape.Option.type:
-                SCNPhysicsShape.ShapeType.concavePolyhedron]))
+                [SCNPhysicsShape
+                    .Option.type:
+                    SCNPhysicsShape
+                        .ShapeType
+                        .concavePolyhedron]))
+        
         hoopNode.physicsBody = body
         
-        if let startNode  = hoopNode.childNode(withName:"resultStart", recursively: false),
-            let endNode = hoopNode.childNode(withName:"resultEnd", recursively: false) {
-            
-            print("Find startNode: \(startNode.description) and Find endNode: \(endNode.description)")
-            
-            startNode.physicsBody?.categoryBitMask = BodyType.startCont.rawValue
-            startNode.physicsBody?.collisionBitMask = BodyType.ball.rawValue
-            startNode.physicsBody?.contactTestBitMask = BodyType.ball.rawValue
-            endNode.physicsBody?.categoryBitMask = BodyType.endCont.rawValue
-            endNode.physicsBody?.collisionBitMask = BodyType.ball.rawValue
-            endNode.physicsBody?.contactTestBitMask = BodyType.ball.rawValue
-        }
+        body.categoryBitMask = BodyType.hoop.rawValue
+        body.collisionBitMask = BodyType.ball.rawValue
+        body.contactTestBitMask = BodyType.ball.rawValue
         
         sceneView.scene.rootNode.addChildNode(hoopNode)
     }
@@ -133,6 +132,7 @@ class ViewController: UIViewController {
             
             return nil
         }
+        
         let node = scene.rootNode.childNode(withName: name, recursively: false)
         
         return node
