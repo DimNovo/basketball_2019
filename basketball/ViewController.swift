@@ -102,17 +102,40 @@ class ViewController: UIViewController {
     
     func createHoop(result: ARHitTestResult) {
         
-        guard let hoopNode = createNode(from: "Hoop") else { return }
+        let hoop = SCNBox(width: 1.8, height: 1.1, length: 0.1, chamferRadius: 0)
+        let ballTorus = SCNTorus(ringRadius: 0.45, pipeRadius: 0.01)
+        let resultTorus = SCNTorus(ringRadius: 0.4, pipeRadius: 0.01)
+        
+        let hoopNode = SCNNode(geometry: hoop)
+        let ballTorusNode = SCNNode(geometry: ballTorus)
+        let resultTorusNode = SCNNode(geometry: resultTorus)
+        ballTorusNode.name = "ballTorusNode"
+        resultTorusNode.name = "resultTorusNode"
         
         hoopNode.simdTransform = result.worldTransform
+        ballTorusNode.simdTransform = result.worldTransform
+        resultTorusNode.simdTransform = result.worldTransform
+        
+        ballTorusNode.position.y -= 0.5
+        resultTorusNode.position.y -= 0.65
+        ballTorusNode.position.z += 0.5
+        resultTorusNode.position.z += 0.5
+        
+        hoopNode.geometry?.firstMaterial?.diffuse.contents = UIImage(named:
+            "art.scnassets/hoopTexture.png")
+        ballTorusNode.geometry?.firstMaterial?.diffuse.contents = UIColor.orange
+        resultTorusNode.geometry?.firstMaterial?.diffuse.contents = UIColor.red
+        
         hoopNode.eulerAngles.x -= .pi / 2
+        ballTorusNode.eulerAngles.x -= .pi / 2
+        resultTorusNode.eulerAngles.x -= .pi / 2
         hoopNode.opacity = 0.77
         
         hoopAdded = true
         stopPlaneDetection()
         removeWalls()
         
-        let body = SCNPhysicsBody(
+        hoopNode.physicsBody = SCNPhysicsBody(
             type:.static,shape:
             SCNPhysicsShape(node:
                 hoopNode,options:
@@ -121,70 +144,35 @@ class ViewController: UIViewController {
                     SCNPhysicsShape
                         .ShapeType
                         .concavePolyhedron]))
-        hoopNode.physicsBody = body
+        ballTorusNode.physicsBody = SCNPhysicsBody(
+            type:.static,shape:
+            SCNPhysicsShape(node:
+                ballTorusNode,options:
+                [SCNPhysicsShape
+                    .Option.type:
+                    SCNPhysicsShape
+                        .ShapeType
+                        .concavePolyhedron]))
+        resultTorusNode.physicsBody = SCNPhysicsBody(
+            type:.static,shape:
+            SCNPhysicsShape(node:
+                resultTorusNode,options:
+                [SCNPhysicsShape
+                    .Option.type:
+                    SCNPhysicsShape
+                        .ShapeType
+                        .concavePolyhedron]))
+        
+        ballTorusNode.physicsBody?.categoryBitMask = BodyType.start.rawValue
+        ballTorusNode.physicsBody?.collisionBitMask = BodyType.ball.rawValue
+        ballTorusNode.physicsBody?.contactTestBitMask = BodyType.ball.rawValue
+        resultTorusNode.physicsBody?.categoryBitMask = BodyType.end.rawValue
+        resultTorusNode.physicsBody?.collisionBitMask = BodyType.ball.rawValue
+        resultTorusNode.physicsBody?.contactTestBitMask = BodyType.ball.rawValue
         
         sceneView.scene.rootNode.addChildNode(hoopNode)
-    }
-    
-    func createResultNodes(result: ARHitTestResult) {
-        
-        let startTorus = SCNTorus(ringRadius: 0.44, pipeRadius: 0.01)
-        let endTorus = SCNTorus(ringRadius: 0.4, pipeRadius: 0.01)
-        
-        let startNode = SCNNode(geometry: startTorus)
-        let endNode = SCNNode(geometry: endTorus)
-        
-        startNode.simdTransform = result.worldTransform
-        endNode.simdTransform = result.worldTransform
-        
-        startNode.simdPosition.x += 0.5
-        endNode.simdPosition.x += 0.5
-        startNode.simdPosition.y -= 0.5
-        endNode.simdPosition.y -= 0.6
-        startNode.simdPosition.z += 0.5
-        endNode.simdPosition.z += 0.5
-        
-
-        startNode.eulerAngles.x -= .pi / 2
-        endNode.eulerAngles.x -= .pi / 2
-        
-        startNode.geometry?.firstMaterial?.diffuse.contents = UIColor.red
-        endNode.geometry?.firstMaterial?.diffuse.contents = UIColor.blue
-        
-        let bodyStart = SCNPhysicsBody(
-            type:.static,shape:
-            SCNPhysicsShape(node:
-                startNode,options:
-                [SCNPhysicsShape
-                    .Option.type:
-                    SCNPhysicsShape
-                        .ShapeType
-                        .concavePolyhedron]))
-        
-        let bodyEnd = SCNPhysicsBody(
-            type:.static,shape:
-            SCNPhysicsShape(node:
-                endNode,options:
-                [SCNPhysicsShape
-                    .Option.type:
-                    SCNPhysicsShape
-                        .ShapeType
-                        .concavePolyhedron]))
-        
-        startNode.physicsBody = bodyStart
-        endNode.physicsBody = bodyEnd
-        
-        bodyStart.categoryBitMask = BodyType.ball.rawValue
-        bodyStart.collisionBitMask = BodyType.start.rawValue
-        bodyStart.contactTestBitMask = BodyType.start.rawValue
-        
-        bodyEnd.categoryBitMask = BodyType.ball.rawValue
-        bodyEnd.collisionBitMask = BodyType.end.rawValue
-        bodyEnd.contactTestBitMask = BodyType.end.rawValue
-        
-        sceneView.scene.rootNode.addChildNode(startNode)
-        sceneView.scene.rootNode.addChildNode(endNode)
-        
+        sceneView.scene.rootNode.addChildNode(ballTorusNode)
+        sceneView.scene.rootNode.addChildNode(resultTorusNode)
     }
     
     func createNode(from name: String) -> SCNNode? {
@@ -243,7 +231,6 @@ class ViewController: UIViewController {
             let location = sender.location(in: sceneView)
             guard let result = sceneView.hitTest(location, types: [.existingPlaneUsingExtent]).first else { return }
             createHoop(result: result)
-            createResultNodes(result: result)
         }
     }
 }
@@ -264,9 +251,15 @@ extension ViewController: ARSCNViewDelegate {
 // MARK: - ... SKPhysicsContactDelegate
 extension ViewController: SCNPhysicsContactDelegate {
     func physicsWorld(_ world: SCNPhysicsWorld, didBegin contact: SCNPhysicsContact) {
-        print("NodeA: \(contact.nodeA.description)\nNodeB: \(contact.nodeB.description)")
+        
+        guard let nameA = contact.nodeA.name,
+            let nameB = contact.nodeB.name else { return }
+        guard nameA == "Ball",
+            nameB == "ballTorusNode" else { return }
+        print("contact!")
     }
 }
+
 // MARK: - ... Свойство categoryBitMask - это число, определяющее тип объекта, который предназначен для рассмотрения коллизий.
 //Свойство collisionBitMask - это число, определяющее, с какими категориями объектов должен сталкиваться этот узел,
 //Свойство contactTestBitMask - это число, определяющее, о каких коллизиях мы хотим получать уведомления.
