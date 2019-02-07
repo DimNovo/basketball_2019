@@ -176,6 +176,7 @@ class ViewController: UIViewController {
     }
     
     func createNode(from name: String) -> SCNNode? {
+        
         guard let scene = SCNScene(named: "art.scnassets/\(name).scn") else {
             print(#function, "ERROR: Can't create node from scene \(name).scn")
             
@@ -204,6 +205,7 @@ class ViewController: UIViewController {
     }
     
     func removeWalls() {
+        
         sceneView.scene.rootNode.enumerateChildNodes { node,_ in
             if node.name == "Wall" {
                 node.removeFromParentNode()
@@ -212,10 +214,9 @@ class ViewController: UIViewController {
     }
     
     func stopPlaneDetection() {
+        
         guard let configuration = sceneView.session.configuration as? ARWorldTrackingConfiguration else { return }
-        
         configuration.planeDetection = []
-        
         sceneView.session.run(configuration)
     }
     
@@ -256,7 +257,11 @@ extension ViewController: SCNPhysicsContactDelegate {
             let nameB = contact.nodeB.name else { return }
         guard nameA == "Ball",
             nameB == "ballTorusNode" else { return }
-        print("contact!")
+        print("FirstContact!")
+        guard nameA == "Ball",
+            nameB == "resultTorusNode" else { return }
+        print("SecondContact!")
+        
     }
 }
 
