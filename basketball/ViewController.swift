@@ -13,14 +13,17 @@ class ViewController: UIViewController {
     // MARK: - ... Properties
     enum BodyType:Int
     {
+        case none = 0
         case ball = 1
         case start = 2
-        case end = 5
+        case hoop = 4
+        case end = 8
     }
     
-    var ballNode: SCNNode?
+    var score = 0
+    var scoreStart = 0
+    var scoreEnd = 0
     var hoopAdded = false
-    var score: Int?
     
     // MARK: - ... @IBOutlet
     @IBOutlet var sceneView: ARSCNView!
@@ -69,21 +72,23 @@ class ViewController: UIViewController {
     // MARK: - ... Custom Methods
     func createBasketBall() {
         
-        guard let ballNode = ballNode?.clone() ?? createNode(from: "Ball") else { return }
-        
-        self.ballNode = ballNode
+        let ball = SCNSphere(radius: 0.35)
+        let ballNode = SCNNode(geometry: ball)
+        ballNode.name = "ball"
+        ballNode.geometry?.firstMaterial?.diffuse.contents = UIImage(named:
+            "art.scnassets/ballTexture.png")
         
         guard let frame = sceneView.session.currentFrame else { return }
         
         ballNode.simdTransform = frame.camera.transform
         
-        let body = SCNPhysicsBody(type:
+        let ballBody = SCNPhysicsBody(type:
             .dynamic,shape:
             SCNPhysicsShape(node:
                 ballNode,options:
                 [SCNPhysicsShape.Option.collisionMargin:0.01]))
         
-        ballNode.physicsBody = body
+        ballNode.physicsBody = ballBody
         
         let power = Float(10)
         let transform = SCNMatrix4(frame.camera.transform)
@@ -91,11 +96,11 @@ class ViewController: UIViewController {
                                -transform.m32 * power,
                                -transform.m33 * power)
         
-        body.applyForce(force, asImpulse: true)
+        ballBody.applyForce(force, asImpulse: true)
         
-        body.categoryBitMask = BodyType.ball.rawValue
-        body.collisionBitMask = BodyType.start.rawValue | BodyType.end.rawValue
-        body.contactTestBitMask = BodyType.start.rawValue | BodyType.end.rawValue
+        ballBody.categoryBitMask = BodyType.ball.rawValue
+        ballBody.collisionBitMask = BodyType.start.rawValue | BodyType.end.rawValue
+        ballBody.contactTestBitMask = BodyType.start.rawValue | BodyType.end.rawValue
         
         sceneView.scene.rootNode.addChildNode(ballNode)
     }
@@ -111,15 +116,11 @@ class ViewController: UIViewController {
         let resultTorusNode = SCNNode(geometry: resultTorus)
         ballTorusNode.name = "ballTorusNode"
         resultTorusNode.name = "resultTorusNode"
+        resultTorusNode.isHidden = true
         
         hoopNode.simdTransform = result.worldTransform
         ballTorusNode.simdTransform = result.worldTransform
         resultTorusNode.simdTransform = result.worldTransform
-        
-        ballTorusNode.position.y -= 0.5
-        resultTorusNode.position.y -= 0.65
-        ballTorusNode.position.z += 0.5
-        resultTorusNode.position.z += 0.5
         
         hoopNode.geometry?.firstMaterial?.diffuse.contents = UIImage(named:
             "art.scnassets/hoopTexture.png")
@@ -134,6 +135,13 @@ class ViewController: UIViewController {
         hoopAdded = true
         stopPlaneDetection()
         removeWalls()
+        
+        ballTorusNode.position.x -= 0.5
+        resultTorusNode.position.x -= 0.5
+        ballTorusNode.position.y -= 0.65
+        resultTorusNode.position.y -= 0.75
+        ballTorusNode.position.z += 0.0
+        resultTorusNode.position.z += 0.0
         
         hoopNode.physicsBody = SCNPhysicsBody(
             type:.static,shape:
@@ -163,12 +171,8 @@ class ViewController: UIViewController {
                         .ShapeType
                         .concavePolyhedron]))
         
-        ballTorusNode.physicsBody?.categoryBitMask = BodyType.start.rawValue
-        ballTorusNode.physicsBody?.collisionBitMask = BodyType.ball.rawValue
-        ballTorusNode.physicsBody?.contactTestBitMask = BodyType.ball.rawValue
-        resultTorusNode.physicsBody?.categoryBitMask = BodyType.end.rawValue
-        resultTorusNode.physicsBody?.collisionBitMask = BodyType.ball.rawValue
-        resultTorusNode.physicsBody?.contactTestBitMask = BodyType.ball.rawValue
+        ballTorusNode.physicsBody!.categoryBitMask = BodyType.start.rawValue
+        resultTorusNode.physicsBody!.categoryBitMask = BodyType.end.rawValue
         
         sceneView.scene.rootNode.addChildNode(hoopNode)
         sceneView.scene.rootNode.addChildNode(ballTorusNode)
@@ -221,7 +225,7 @@ class ViewController: UIViewController {
     }
     
     func result() {
-        resultLabel.text = "Goals: \(score ?? 0)"
+        resultLabel.text = "Goals: \(score)"
     }
     
     // MARK: - ... @IBAction
@@ -241,7 +245,7 @@ extension ViewController: ARSCNViewDelegate {
     func renderer(_ renderer: SCNSceneRenderer, didAdd node: SCNNode, for anchor: ARAnchor) {
         
         guard let anchor = anchor as? ARPlaneAnchor,
-        anchor.alignment == .vertical else { return }
+            anchor.alignment == .vertical else { return }
         
         let wall = createWall(anchor: anchor)
         
@@ -253,15 +257,24 @@ extension ViewController: ARSCNViewDelegate {
 extension ViewController: SCNPhysicsContactDelegate {
     func physicsWorld(_ world: SCNPhysicsWorld, didBegin contact: SCNPhysicsContact) {
         
-        guard let nameA = contact.nodeA.name,
-            let nameB = contact.nodeB.name else { return }
-        guard nameA == "Ball",
-            nameB == "ballTorusNode" else { return }
-        print("FirstContact!")
-        guard nameA == "Ball",
-            nameB == "resultTorusNode" else { return }
-        print("SecondContact!")
-        
+//        guard let nameA = contact.nodeA.name,
+//            let nameB = contact.nodeB.name
+//            else { return }
+//
+//        if nameA == "ball",
+//            nameB == "ballTorusNode"
+//        {
+//            scoreStart += 1
+//            print(scoreStart)
+//
+//        } else if nameB == "resultTorusNode" {
+//
+//            scoreEnd += 1
+//            print(scoreEnd)
+//
+//        }
+//        guard (scoreStart % scoreEnd) != 0 else { return }
+//        score += 1
     }
 }
 
