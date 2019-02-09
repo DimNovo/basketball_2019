@@ -20,9 +20,7 @@ class ViewController: UIViewController {
         case end = 8
     }
     
-    var score = 0
-    var scoreStart = 0
-    var scoreEnd = 0
+    var score = 0.0
     var hoopAdded = false
     
     // MARK: - ... @IBOutlet
@@ -257,24 +255,23 @@ extension ViewController: ARSCNViewDelegate {
 extension ViewController: SCNPhysicsContactDelegate {
     func physicsWorld(_ world: SCNPhysicsWorld, didBegin contact: SCNPhysicsContact) {
         
-//        guard let nameA = contact.nodeA.name,
-//            let nameB = contact.nodeB.name
-//            else { return }
-//
-//        if nameA == "ball",
-//            nameB == "ballTorusNode"
-//        {
-//            scoreStart += 1
-//            print(scoreStart)
-//
-//        } else if nameB == "resultTorusNode" {
-//
-//            scoreEnd += 1
-//            print(scoreEnd)
-//
-//        }
-//        guard (scoreStart % scoreEnd) != 0 else { return }
-//        score += 1
+        print("** Collision!! " + contact.nodeA.name! + " hit " + contact.nodeB.name!)
+        
+        if contact.nodeA.physicsBody?.categoryBitMask == BodyType.ball.rawValue
+            || contact.nodeB.physicsBody?.categoryBitMask == BodyType.start.rawValue {
+            
+            if (contact.nodeA.name! == "ball" || contact.nodeB.name! == "ballTorusNode") {
+                score += 0.5
+            }else if (contact.nodeA.name! == "ball" || contact.nodeB.name! == "resultTorusNode") {
+                score += 0.5
+            }
+            
+            DispatchQueue.main.async {
+                contact.nodeA.removeFromParentNode()
+                contact.nodeB.removeFromParentNode()
+                self.resultLabel.text = String(self.score)
+            }
+        }
     }
 }
 
