@@ -19,8 +19,8 @@ class ViewController: UIViewController {
         case hoop = 4
         case end = 8
     }
-    
-    var score = 0.0
+    var halfScore: Double = 0.0
+    var score = 0
     var hoopAdded = false
     
     // MARK: - ... @IBOutlet
@@ -46,7 +46,6 @@ class ViewController: UIViewController {
         // Set the scene to the view
         sceneView.scene = scene
         sceneView.scene.physicsWorld.contactDelegate = self
-        result()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -106,15 +105,16 @@ class ViewController: UIViewController {
     func createHoop(result: ARHitTestResult) {
         
         let hoop = SCNBox(width: 1.8, height: 1.1, length: 0.1, chamferRadius: 0)
-        let ballTorus = SCNTorus(ringRadius: 0.45, pipeRadius: 0.01)
-        let resultTorus = SCNTorus(ringRadius: 0.4, pipeRadius: 0.01)
+        let ballTorus = SCNTorus(ringRadius: 0.44, pipeRadius: 0.01)
+        let resultTorus = SCNTorus(ringRadius: 0.40555, pipeRadius: 0.01)
         
         let hoopNode = SCNNode(geometry: hoop)
         let ballTorusNode = SCNNode(geometry: ballTorus)
         let resultTorusNode = SCNNode(geometry: resultTorus)
+        
+        hoopNode.name = "hoopNode"
         ballTorusNode.name = "ballTorusNode"
         resultTorusNode.name = "resultTorusNode"
-        resultTorusNode.isHidden = true
         
         hoopNode.simdTransform = result.worldTransform
         ballTorusNode.simdTransform = result.worldTransform
@@ -134,12 +134,12 @@ class ViewController: UIViewController {
         stopPlaneDetection()
         removeWalls()
         
-        ballTorusNode.position.x -= 0.5
-        resultTorusNode.position.x -= 0.5
         ballTorusNode.position.y -= 0.65
-        resultTorusNode.position.y -= 0.75
-        ballTorusNode.position.z += 0.0
-        resultTorusNode.position.z += 0.0
+        resultTorusNode.position.y -= 0.77
+//        ballTorusNode.position.z += 1.0
+//        resultTorusNode.position.z += 1.0
+                hoopNode.position.x += 0.48
+        
         
         hoopNode.physicsBody = SCNPhysicsBody(
             type:.static,shape:
@@ -169,8 +169,12 @@ class ViewController: UIViewController {
                         .ShapeType
                         .concavePolyhedron]))
         
-        ballTorusNode.physicsBody!.categoryBitMask = BodyType.start.rawValue
-        resultTorusNode.physicsBody!.categoryBitMask = BodyType.end.rawValue
+        ballTorusNode.physicsBody?.categoryBitMask = BodyType.start.rawValue
+        ballTorusNode.physicsBody?.collisionBitMask = BodyType.ball.rawValue
+        ballTorusNode.physicsBody?.contactTestBitMask = BodyType.ball.rawValue
+        resultTorusNode.physicsBody?.categoryBitMask = BodyType.end.rawValue
+        resultTorusNode.physicsBody?.collisionBitMask = BodyType.ball.rawValue
+        resultTorusNode.physicsBody?.contactTestBitMask = BodyType.ball.rawValue
         
         sceneView.scene.rootNode.addChildNode(hoopNode)
         sceneView.scene.rootNode.addChildNode(ballTorusNode)
@@ -222,10 +226,6 @@ class ViewController: UIViewController {
         sceneView.session.run(configuration)
     }
     
-    func result() {
-        resultLabel.text = "Goals: \(score)"
-    }
-    
     // MARK: - ... @IBAction
     @IBAction func screenTapped(_ sender: UITapGestureRecognizer) {
         if hoopAdded {
@@ -257,23 +257,64 @@ extension ViewController: SCNPhysicsContactDelegate {
         
         print("** Collision!! " + contact.nodeA.name! + " hit " + contact.nodeB.name!)
         
-        if contact.nodeA.physicsBody?.categoryBitMask == BodyType.ball.rawValue
-            || contact.nodeB.physicsBody?.categoryBitMask == BodyType.start.rawValue {
-            
-            if (contact.nodeA.name! == "ball" || contact.nodeB.name! == "ballTorusNode") {
-                score += 0.5
-            }else if (contact.nodeA.name! == "ball" || contact.nodeB.name! == "resultTorusNode") {
-                score += 0.5
+        if contact.nodeA.physicsBody?
+            .categoryBitMask == BodyType
+                .ball.rawValue &&
+            contact.nodeB.physicsBody?
+                .categoryBitMask == BodyType
+                    .start.rawValue {
+            if (contact.nodeA.name! == "ball" && contact
+                .nodeB.name! == "ballTorusNode") {
+                halfScore += 0.5
+                contact.nodeB.categoryBitMask = BodyType.hoop.rawValue
+                
+            } else if contact.nodeA.physicsBody?
+                .categoryBitMask == BodyType
+                    .ball.rawValue &&
+                contact.nodeB.physicsBody?
+                    .categoryBitMask == BodyType
+                        .end.rawValue {
+                if (contact.nodeA.name! == "ball" && contact
+                    .nodeB.name! == "resultTorusNode")  {
+                    halfScore += 0.5
+                 contact.nodeB.categoryBitMask = BodyType.hoop.rawValue
+                }
             }
-            
+            score = Int(halfScore)
             DispatchQueue.main.async {
-                contact.nodeA.removeFromParentNode()
-                contact.nodeB.removeFromParentNode()
-                self.resultLabel.text = String(self.score)
+                self.resultLabel.text = String("Goals: \(self.score)")
             }
         }
     }
 }
+
+//    func physicsWorld(_ world: SCNPhysicsWorld, didEnd contact: SCNPhysicsContact) {
+//    if contact.nodeA.physicsBody?.categoryBitMask == BodyType.ball.rawValue,
+//    contact.nodeB.physicsBody?.categoryBitMask == BodyType.end.rawValue {
+//    guard (contact.nodeA.name! == "ball" && contact.nodeB.name! == "resultTorusNode") else { return }
+//    score += 1
+//    //                    contact.nodeA.physicsBody?.categoryBitMask = BodyType.ball.rawValue
+//    //                    contact.nodeB.physicsBody?.categoryBitMask = BodyType.hoop.rawValue
+//
+//    //        if contact.nodeA.physicsBody?.categoryBitMask == BodyType.ball.rawValue
+//    //                && contact.nodeB.physicsBody?.categoryBitMask == BodyType.hoop.rawValue {
+//    //                if (contact.nodeA.name! == "ball" && contact.nodeB.name! == "hoopNode") {
+//    //                    score += 0
+//    //                }
+//    //            }
+//    //            if contact.nodeA.physicsBody?.categoryBitMask == BodyType.ball.rawValue
+//    //                && contact.nodeB.physicsBody?.categoryBitMask == BodyType.ball.rawValue {
+//    //                if (contact.nodeA.name! == "ball" && contact.nodeB.name! == "ball") {
+//    //                    score += 0
+//    //                }
+//    //            }
+//    DispatchQueue.main.async {
+//    self.resultLabel.text = String("Goals: \(self.score)")
+//        }
+//    }
+
+
+
 
 // MARK: - ... Свойство categoryBitMask - это число, определяющее тип объекта, который предназначен для рассмотрения коллизий.
 //Свойство collisionBitMask - это число, определяющее, с какими категориями объектов должен сталкиваться этот узел,
