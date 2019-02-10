@@ -15,11 +15,11 @@ class ViewController: UIViewController {
     {
         case none = 0
         case ball = 1
-        case start = 2
-        case hoop = 4
+        case hoop = 2
+        case start = 4
         case end = 8
     }
-    var halfScore: Double = 0.0
+    var collision = true
     var score = 0
     var hoopAdded = false
     
@@ -96,8 +96,9 @@ class ViewController: UIViewController {
         ballBody.applyForce(force, asImpulse: true)
         
         ballBody.categoryBitMask = BodyType.ball.rawValue
-        ballBody.collisionBitMask = BodyType.start.rawValue | BodyType.end.rawValue
-        ballBody.contactTestBitMask = BodyType.start.rawValue | BodyType.end.rawValue
+        
+        ballBody.collisionBitMask = BodyType.start.rawValue | BodyType.end.rawValue | BodyType.hoop.rawValue
+        ballBody.contactTestBitMask = BodyType.start.rawValue | BodyType.end.rawValue | BodyType.hoop.rawValue
         
         sceneView.scene.rootNode.addChildNode(ballNode)
     }
@@ -106,28 +107,33 @@ class ViewController: UIViewController {
         
         let hoop = SCNBox(width: 1.8, height: 1.1, length: 0.1, chamferRadius: 0)
         let ballTorus = SCNTorus(ringRadius: 0.44, pipeRadius: 0.01)
-        let resultTorus = SCNTorus(ringRadius: 0.40555, pipeRadius: 0.01)
+        let resultTorus = SCNTorus(ringRadius: 0.41, pipeRadius: 0.01)
         
         let hoopNode = SCNNode(geometry: hoop)
         let ballTorusNode = SCNNode(geometry: ballTorus)
         let resultTorusNode = SCNNode(geometry: resultTorus)
+        let result2TorusNode = SCNNode(geometry: resultTorus)
         
         hoopNode.name = "hoopNode"
         ballTorusNode.name = "ballTorusNode"
         resultTorusNode.name = "resultTorusNode"
+        result2TorusNode.name = "result2TorusNode"
         
         hoopNode.simdTransform = result.worldTransform
         ballTorusNode.simdTransform = result.worldTransform
         resultTorusNode.simdTransform = result.worldTransform
+        result2TorusNode.simdTransform = result.worldTransform
         
         hoopNode.geometry?.firstMaterial?.diffuse.contents = UIImage(named:
             "art.scnassets/hoopTexture.png")
         ballTorusNode.geometry?.firstMaterial?.diffuse.contents = UIColor.orange
         resultTorusNode.geometry?.firstMaterial?.diffuse.contents = UIColor.red
+        result2TorusNode.geometry?.firstMaterial?.diffuse.contents = UIColor.red
         
         hoopNode.eulerAngles.x -= .pi / 2
         ballTorusNode.eulerAngles.x -= .pi / 2
         resultTorusNode.eulerAngles.x -= .pi / 2
+        result2TorusNode.eulerAngles.x -= .pi / 2
         hoopNode.opacity = 0.77
         
         hoopAdded = true
@@ -136,9 +142,10 @@ class ViewController: UIViewController {
         
         ballTorusNode.position.y -= 0.65
         resultTorusNode.position.y -= 0.77
+        result2TorusNode.position.y -= 1.0
 //        ballTorusNode.position.z += 1.0
 //        resultTorusNode.position.z += 1.0
-                hoopNode.position.x += 0.48
+                hoopNode.position.z -= 0.5
         
         
         hoopNode.physicsBody = SCNPhysicsBody(
@@ -168,17 +175,28 @@ class ViewController: UIViewController {
                     SCNPhysicsShape
                         .ShapeType
                         .concavePolyhedron]))
+        result2TorusNode.physicsBody = SCNPhysicsBody(
+            type:.static,shape:
+            SCNPhysicsShape(node:
+                result2TorusNode,options:
+                [SCNPhysicsShape
+                    .Option.type:
+                    SCNPhysicsShape
+                        .ShapeType
+                        .concavePolyhedron]))
         
-        ballTorusNode.physicsBody?.categoryBitMask = BodyType.start.rawValue
-        ballTorusNode.physicsBody?.collisionBitMask = BodyType.ball.rawValue
-        ballTorusNode.physicsBody?.contactTestBitMask = BodyType.ball.rawValue
-        resultTorusNode.physicsBody?.categoryBitMask = BodyType.end.rawValue
+        resultTorusNode.physicsBody?.categoryBitMask = BodyType.start.rawValue
+        result2TorusNode.physicsBody?.categoryBitMask = BodyType.end.rawValue
         resultTorusNode.physicsBody?.collisionBitMask = BodyType.ball.rawValue
         resultTorusNode.physicsBody?.contactTestBitMask = BodyType.ball.rawValue
+        result2TorusNode.physicsBody?.collisionBitMask = BodyType.ball.rawValue
+        result2TorusNode.physicsBody?.contactTestBitMask = BodyType.ball.rawValue
         
         sceneView.scene.rootNode.addChildNode(hoopNode)
         sceneView.scene.rootNode.addChildNode(ballTorusNode)
         sceneView.scene.rootNode.addChildNode(resultTorusNode)
+        sceneView.scene.rootNode.addChildNode(result2TorusNode)
+        
     }
     
     func createNode(from name: String) -> SCNNode? {
@@ -255,67 +273,24 @@ extension ViewController: ARSCNViewDelegate {
 extension ViewController: SCNPhysicsContactDelegate {
     func physicsWorld(_ world: SCNPhysicsWorld, didBegin contact: SCNPhysicsContact) {
         
-        print("** Collision!! " + contact.nodeA.name! + " hit " + contact.nodeB.name!)
+        print("Collision!! " + contact.nodeA.name! + " hit " + contact.nodeB.name!)
         
-        if contact.nodeA.physicsBody?
-            .categoryBitMask == BodyType
-                .ball.rawValue &&
-            contact.nodeB.physicsBody?
-                .categoryBitMask == BodyType
-                    .start.rawValue {
-            if (contact.nodeA.name! == "ball" && contact
-                .nodeB.name! == "ballTorusNode") {
-                halfScore += 0.5
-                contact.nodeB.categoryBitMask = BodyType.hoop.rawValue
-                
-            } else if contact.nodeA.physicsBody?
-                .categoryBitMask == BodyType
-                    .ball.rawValue &&
-                contact.nodeB.physicsBody?
-                    .categoryBitMask == BodyType
-                        .end.rawValue {
-                if (contact.nodeA.name! == "ball" && contact
-                    .nodeB.name! == "resultTorusNode")  {
-                    halfScore += 0.5
-                 contact.nodeB.categoryBitMask = BodyType.hoop.rawValue
-                }
-            }
-            score = Int(halfScore)
+        guard (contact.nodeA.name! == "ball" && contact.nodeB.name! == "resultTorusNode") else
+        { return }
+           
+           collision = false
+        
+        
+        guard (contact.nodeA.name! == "ball" && contact.nodeB.name! == "result2TorusNode") else
+        { return }
+            
+           collision = false
+        
             DispatchQueue.main.async {
                 self.resultLabel.text = String("Goals: \(self.score)")
-            }
         }
     }
 }
-
-//    func physicsWorld(_ world: SCNPhysicsWorld, didEnd contact: SCNPhysicsContact) {
-//    if contact.nodeA.physicsBody?.categoryBitMask == BodyType.ball.rawValue,
-//    contact.nodeB.physicsBody?.categoryBitMask == BodyType.end.rawValue {
-//    guard (contact.nodeA.name! == "ball" && contact.nodeB.name! == "resultTorusNode") else { return }
-//    score += 1
-//    //                    contact.nodeA.physicsBody?.categoryBitMask = BodyType.ball.rawValue
-//    //                    contact.nodeB.physicsBody?.categoryBitMask = BodyType.hoop.rawValue
-//
-//    //        if contact.nodeA.physicsBody?.categoryBitMask == BodyType.ball.rawValue
-//    //                && contact.nodeB.physicsBody?.categoryBitMask == BodyType.hoop.rawValue {
-//    //                if (contact.nodeA.name! == "ball" && contact.nodeB.name! == "hoopNode") {
-//    //                    score += 0
-//    //                }
-//    //            }
-//    //            if contact.nodeA.physicsBody?.categoryBitMask == BodyType.ball.rawValue
-//    //                && contact.nodeB.physicsBody?.categoryBitMask == BodyType.ball.rawValue {
-//    //                if (contact.nodeA.name! == "ball" && contact.nodeB.name! == "ball") {
-//    //                    score += 0
-//    //                }
-//    //            }
-//    DispatchQueue.main.async {
-//    self.resultLabel.text = String("Goals: \(self.score)")
-//        }
-//    }
-
-
-
-
 // MARK: - ... Свойство categoryBitMask - это число, определяющее тип объекта, который предназначен для рассмотрения коллизий.
 //Свойство collisionBitMask - это число, определяющее, с какими категориями объектов должен сталкиваться этот узел,
 //Свойство contactTestBitMask - это число, определяющее, о каких коллизиях мы хотим получать уведомления.
