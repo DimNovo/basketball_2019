@@ -128,7 +128,6 @@ class ViewController: UIViewController {
                                               y: (hoopNode.position.y - 0.75),
                                               z: (hoopNode.position.z - 0.5))
         
-        
         hoopNode.geometry?.firstMaterial?.diffuse.contents = UIImage(named:
             "art.scnassets/hoopTexture.png")
         ballTorusNode.geometry?.firstMaterial?.diffuse.contents = UIColor.orange
@@ -264,7 +263,7 @@ extension ViewController: SCNPhysicsContactDelegate {
         }
         if (collisionBall == true) && (collisionResult == false) {
             if (contact.nodeA.name! == "ball" && contact.nodeB.name! == "resultTorusNode") ||
-                (contact.nodeA.name! == "ball" && contact.nodeB.name! == "resultTorusNode") {
+                (contact.nodeB.name! == "ball" && contact.nodeA.name! == "resultTorusNode") {
                 
                 collisionResult = true
                 collisionBall = false
