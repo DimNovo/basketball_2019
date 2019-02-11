@@ -15,11 +15,11 @@ class ViewController: UIViewController {
     {
         case none = 0
         case ball = 1
-        case hoop = 2
-        case start = 4
-        case end = 8
+        case start = 2
+        case end = 4
     }
-    var collision = true
+    var collisionBall = false
+    var collisionResult = false
     var score = 0
     var hoopAdded = false
     
@@ -97,8 +97,8 @@ class ViewController: UIViewController {
         
         ballBody.categoryBitMask = BodyType.ball.rawValue
         
-        ballBody.collisionBitMask = BodyType.start.rawValue | BodyType.end.rawValue | BodyType.hoop.rawValue
-        ballBody.contactTestBitMask = BodyType.start.rawValue | BodyType.end.rawValue | BodyType.hoop.rawValue
+        ballBody.collisionBitMask = BodyType.start.rawValue | BodyType.end.rawValue
+        ballBody.contactTestBitMask = BodyType.start.rawValue | BodyType.end.rawValue
         
         sceneView.scene.rootNode.addChildNode(ballNode)
     }
@@ -112,41 +112,31 @@ class ViewController: UIViewController {
         let hoopNode = SCNNode(geometry: hoop)
         let ballTorusNode = SCNNode(geometry: ballTorus)
         let resultTorusNode = SCNNode(geometry: resultTorus)
-        let result2TorusNode = SCNNode(geometry: resultTorus)
         
         hoopNode.name = "hoopNode"
         ballTorusNode.name = "ballTorusNode"
         resultTorusNode.name = "resultTorusNode"
-        result2TorusNode.name = "result2TorusNode"
         
         hoopNode.simdTransform = result.worldTransform
-        ballTorusNode.simdTransform = result.worldTransform
-        resultTorusNode.simdTransform = result.worldTransform
-        result2TorusNode.simdTransform = result.worldTransform
+        hoopNode.eulerAngles.x -= .pi / 2
+        hoopNode.opacity = 0.77
+        
+        ballTorusNode.position = SCNVector3(x: hoopNode.position.x,
+                                            y: (hoopNode.position.y - 0.55),
+                                            z: (hoopNode.position.z - 0.5))
+        resultTorusNode.position = SCNVector3(x: hoopNode.position.x,
+                                              y: (hoopNode.position.y - 0.75),
+                                              z: (hoopNode.position.z - 0.5))
+        
         
         hoopNode.geometry?.firstMaterial?.diffuse.contents = UIImage(named:
             "art.scnassets/hoopTexture.png")
         ballTorusNode.geometry?.firstMaterial?.diffuse.contents = UIColor.orange
-        resultTorusNode.geometry?.firstMaterial?.diffuse.contents = UIColor.red
-        result2TorusNode.geometry?.firstMaterial?.diffuse.contents = UIColor.red
-        
-        hoopNode.eulerAngles.x -= .pi / 2
-        ballTorusNode.eulerAngles.x -= .pi / 2
-        resultTorusNode.eulerAngles.x -= .pi / 2
-        result2TorusNode.eulerAngles.x -= .pi / 2
-        hoopNode.opacity = 0.77
+        resultTorusNode.geometry?.firstMaterial?.diffuse.contents = UIColor.clear
         
         hoopAdded = true
         stopPlaneDetection()
         removeWalls()
-        
-        ballTorusNode.position.y -= 0.65
-        resultTorusNode.position.y -= 0.77
-        result2TorusNode.position.y -= 1.0
-//        ballTorusNode.position.z += 1.0
-//        resultTorusNode.position.z += 1.0
-                hoopNode.position.z -= 0.5
-        
         
         hoopNode.physicsBody = SCNPhysicsBody(
             type:.static,shape:
@@ -175,28 +165,17 @@ class ViewController: UIViewController {
                     SCNPhysicsShape
                         .ShapeType
                         .concavePolyhedron]))
-        result2TorusNode.physicsBody = SCNPhysicsBody(
-            type:.static,shape:
-            SCNPhysicsShape(node:
-                result2TorusNode,options:
-                [SCNPhysicsShape
-                    .Option.type:
-                    SCNPhysicsShape
-                        .ShapeType
-                        .concavePolyhedron]))
         
-        resultTorusNode.physicsBody?.categoryBitMask = BodyType.start.rawValue
-        result2TorusNode.physicsBody?.categoryBitMask = BodyType.end.rawValue
+        resultTorusNode.physicsBody?.categoryBitMask = BodyType.end.rawValue
         resultTorusNode.physicsBody?.collisionBitMask = BodyType.ball.rawValue
         resultTorusNode.physicsBody?.contactTestBitMask = BodyType.ball.rawValue
-        result2TorusNode.physicsBody?.collisionBitMask = BodyType.ball.rawValue
-        result2TorusNode.physicsBody?.contactTestBitMask = BodyType.ball.rawValue
+        ballTorusNode.physicsBody?.categoryBitMask = BodyType.start.rawValue
+        ballTorusNode.physicsBody?.collisionBitMask = BodyType.ball.rawValue
+        ballTorusNode.physicsBody?.contactTestBitMask = BodyType.ball.rawValue
         
         sceneView.scene.rootNode.addChildNode(hoopNode)
         sceneView.scene.rootNode.addChildNode(ballTorusNode)
         sceneView.scene.rootNode.addChildNode(resultTorusNode)
-        sceneView.scene.rootNode.addChildNode(result2TorusNode)
-        
     }
     
     func createNode(from name: String) -> SCNNode? {
@@ -248,6 +227,9 @@ class ViewController: UIViewController {
     @IBAction func screenTapped(_ sender: UITapGestureRecognizer) {
         if hoopAdded {
             createBasketBall()
+            collisionBall = false
+            collisionResult = false
+            resultLabel.textColor = UIColor.blue
         } else {
             let location = sender.location(in: sceneView)
             guard let result = sceneView.hitTest(location, types: [.existingPlaneUsingExtent]).first else { return }
@@ -273,21 +255,26 @@ extension ViewController: ARSCNViewDelegate {
 extension ViewController: SCNPhysicsContactDelegate {
     func physicsWorld(_ world: SCNPhysicsWorld, didBegin contact: SCNPhysicsContact) {
         
-        print("Collision!! " + contact.nodeA.name! + " hit " + contact.nodeB.name!)
-        
-        guard (contact.nodeA.name! == "ball" && contact.nodeB.name! == "resultTorusNode") else
-        { return }
-           
-           collision = false
-        
-        
-        guard (contact.nodeA.name! == "ball" && contact.nodeB.name! == "result2TorusNode") else
-        { return }
-            
-           collision = false
-        
-            DispatchQueue.main.async {
-                self.resultLabel.text = String("Goals: \(self.score)")
+        if (collisionBall == false) {
+            if (contact.nodeA.name! == "ball" && contact.nodeB.name! == "ballTorusNode") ||
+                (contact.nodeB.name! == "ball" && contact.nodeA.name! == "ballTorusNode") {
+                
+                collisionBall = true
+            }
+        }
+        if (collisionBall == true) && (collisionResult == false) {
+            if (contact.nodeA.name! == "ball" && contact.nodeB.name! == "resultTorusNode") ||
+                (contact.nodeA.name! == "ball" && contact.nodeB.name! == "resultTorusNode") {
+                
+                collisionResult = true
+                collisionBall = false
+                
+                score += 1
+                DispatchQueue.main.async {
+                    self.resultLabel.textColor = UIColor.red
+                    self.resultLabel.text = String("Goals: \(self.score)")
+                }
+            }
         }
     }
 }
