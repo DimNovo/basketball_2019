@@ -97,8 +97,8 @@ class ViewController: UIViewController {
         
         ballBody.categoryBitMask = BodyType.ball.rawValue
         
-        ballBody.collisionBitMask = BodyType.start.rawValue | BodyType.end.rawValue
-        ballBody.contactTestBitMask = BodyType.start.rawValue | BodyType.end.rawValue
+        ballBody.collisionBitMask = BodyType.start.rawValue | BodyType.end.rawValue | BodyType.ball.rawValue
+        ballBody.contactTestBitMask = BodyType.start.rawValue | BodyType.end.rawValue | BodyType.ball.rawValue
         
         sceneView.scene.rootNode.addChildNode(ballNode)
     }
