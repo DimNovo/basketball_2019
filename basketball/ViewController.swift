@@ -106,8 +106,8 @@ class ViewController: UIViewController {
     func createHoop(result: ARHitTestResult) {
         
         let hoop = SCNBox(width: 1.8, height: 1.1, length: 0.1, chamferRadius: 0)
-        let ballTorus = SCNTorus(ringRadius: 0.44, pipeRadius: 0.01)
-        let resultTorus = SCNTorus(ringRadius: 0.41, pipeRadius: 0.01)
+        let ballTorus = SCNTorus(ringRadius: 0.44, pipeRadius: 0.03)
+        let resultTorus = SCNTorus(ringRadius: 0.40, pipeRadius: 0.01)
         
         let hoopNode = SCNNode(geometry: hoop)
         let ballTorusNode = SCNNode(geometry: ballTorus)
@@ -118,15 +118,20 @@ class ViewController: UIViewController {
         resultTorusNode.name = "resultTorusNode"
         
         hoopNode.simdTransform = result.worldTransform
+        var translation = matrix_identity_float4x4
+        translation.columns.3.y += 0.55
+        ballTorusNode.simdTransform = matrix_multiply(result.worldTransform, translation)
+        translation.columns.3.z += 0.5
+        ballTorusNode.simdTransform = matrix_multiply(result.worldTransform, translation)
+        translation.columns.3.y += 0.0
+        resultTorusNode.simdTransform = matrix_multiply(result.worldTransform, translation)
+        translation.columns.3.z += 0.2
+        resultTorusNode.simdTransform = matrix_multiply(result.worldTransform, translation)
+        
+        ballTorusNode.eulerAngles.x -= .pi / 2
+        resultTorusNode.eulerAngles.x -= .pi / 2
         hoopNode.eulerAngles.x -= .pi / 2
         hoopNode.opacity = 0.77
-        
-        ballTorusNode.position = SCNVector3(x: hoopNode.position.x,
-                                            y: (hoopNode.position.y - 0.55),
-                                            z: (hoopNode.position.z - 0.5))
-        resultTorusNode.position = SCNVector3(x: hoopNode.position.x,
-                                              y: (hoopNode.position.y - 0.75),
-                                              z: (hoopNode.position.z - 0.5))
         
         hoopNode.geometry?.firstMaterial?.diffuse.contents = UIImage(named:
             "art.scnassets/hoopTexture.png")
@@ -229,6 +234,7 @@ class ViewController: UIViewController {
             collisionBall = false
             collisionResult = false
             resultLabel.textColor = UIColor.blue
+            resultLabel.font.withSize(30)
         } else {
             let location = sender.location(in: sceneView)
             guard let result = sceneView.hitTest(location, types: [.existingPlaneUsingExtent]).first else { return }
@@ -255,23 +261,23 @@ extension ViewController: SCNPhysicsContactDelegate {
     func physicsWorld(_ world: SCNPhysicsWorld, didBegin contact: SCNPhysicsContact) {
         
         if (collisionBall == false) {
-            if (contact.nodeA.name! == "ball" && contact.nodeB.name! == "ballTorusNode") ||
-                (contact.nodeB.name! == "ball" && contact.nodeA.name! == "ballTorusNode") {
+            if (contact.nodeA.name! == "ball" && contact.nodeB.name! == "ballTorusNode") {
                 
-                collisionBall = true
+                collisionBall.toggle() // true
             }
         }
+        
         if (collisionBall == true) && (collisionResult == false) {
-            if (contact.nodeA.name! == "ball" && contact.nodeB.name! == "resultTorusNode") ||
-                (contact.nodeB.name! == "ball" && contact.nodeA.name! == "resultTorusNode") {
+            if (contact.nodeA.name! == "ball" && contact.nodeB.name! == "resultTorusNode") {
                 
-                collisionResult = true
-                collisionBall = false
+                collisionResult.toggle() // true
+                collisionBall.toggle() // false
                 
                 score += 1
                 DispatchQueue.main.async {
                     self.resultLabel.textColor = UIColor.red
-                    self.resultLabel.text = String("Goals: \(self.score)")
+                    self.resultLabel.font.withSize(35)
+                    self.resultLabel.text = String("<<< Goals: \(self.score) >>>")
                 }
             }
         }
